@@ -6,6 +6,16 @@ B.5 Regresión múltiple
     β̂ = (XᵀX)⁻¹ XᵀY ŷ = β̂₀ + β̂₁x₁ + β̂₂x₂ + … + β̂x
 """
 
+"""
+    Casi la misma idea que regresion lineal simple pero aca hay mas variables.
+    El tema con regresion multiple es que el calculo manual que hice en b1 se alarga una banda
+    pero por suerte como no es mas que una ecuacion con incognitas y como sabemos las matrices
+    se utilizan para resolver incognitas, existe una cuenta que es la mencionada arriba
+    "β̂ = (XᵀX)⁻¹ XᵀY" que nos pertime calcular cada b0, b1, etc.
+    Se va a utilizar esto no solo porque lo pida el ejercicio sino porque es mas facil
+    yeah.
+"""
+
 import pandas as pd
 import numpy as np
 import patsy

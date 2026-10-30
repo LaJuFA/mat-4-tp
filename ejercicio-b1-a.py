@@ -27,7 +27,7 @@ def calculate_s(first_list, second_list):
     second_average = get_average(second_list)
     aux_first = (first_list - first_average).to_list()
     aux_second = (second_list - second_average).to_list()
-    return sum(aux_first * aux_second)
+    return sum(map(lambda x, y: x * y, aux_first, aux_second))
 
 def get_yi(x):
     return b0 + b1 * x
@@ -36,7 +36,7 @@ df = pd.read_csv("Steel_industry_data.csv")
 
 df_relevant_data = df[["Usage_kWh", "Lagging_Current_Reactive.Power_kVarh"]]
 
-df_relevant_data_capped = df_relevant_data.head() #No quiero usar un trillon de datos por ahora gracias
+df_relevant_data_capped = df_relevant_data #No quiero usar un trillon de datos por ahora gracias (esto tenia un head en el commit anterior que hacia que agarre solo las primeras 5 filas)
 
 only_kwh = pd.Series(df_relevant_data_capped["Usage_kWh"])
 
@@ -58,7 +58,7 @@ b1 = sxy / sxx
 
 b0 = get_average(only_kwh) - b1 * get_average(only_kvarh)
 
-aux_yi = map(get_yi, only_kvarh)
+aux_yi = pd.Series(map(get_yi, only_kvarh))
 
 aux_scr = (np.power((aux_yi - get_average(only_kwh)), 2)).to_list()
 
@@ -69,3 +69,27 @@ scr = sum(aux_scr)
 aux_sce = (np.power((only_kwh - aux_yi), 2)).to_list()
 
 sce = sum(aux_sce)
+
+#Calculo de la estimacion de la varianza
+
+o2 = sce / (only_kwh.size - 2)
+
+#Piola
+
+#Calculo del coeficiente de determinacion
+
+r2 = 1 - sce / stc
+
+#Tabla
+
+d = {
+    "STC": [stc],
+    "SCR": [scr],
+    "SCE": [sce],
+    "Estimacion de la varianza": [o2],
+    "Coeficiente de determinacion": [r2]
+}
+
+df_table = pd.DataFrame(d)
+
+print(df_table)
