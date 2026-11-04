@@ -32,6 +32,18 @@ def calculate_s(first_list, second_list):
 def get_yi(x):
     return b0 + b1 * x
 
+def get_b0():
+    return get_average(only_kwh) - get_b1() * get_average(only_kvarh)
+
+def get_b1():
+    return calculate_s(only_kvarh, only_kwh) / calculate_s(only_kvarh, only_kvarh)
+
+def get_sxx():
+    return calculate_s(only_kvarh, only_kvarh)
+
+def get_o2():
+    return sce / (only_kwh.size - 2)
+
 df = pd.read_csv("Steel_industry_data.csv")
 
 df_relevant_data = df[["Usage_kWh", "Lagging_Current_Reactive.Power_kVarh"]]
