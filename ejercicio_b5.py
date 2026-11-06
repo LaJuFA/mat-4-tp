@@ -1,53 +1,97 @@
-"""
-B.5 Regresión múltiple
-    • Estimar por mínimos cuadrados el modelo de regresión múltiple de Usage_kWh sobre las variables
-    Lagging_Current_Reactive.Power_kVarh, Leading_Current_Reactive_Power_kVarh, Lagging_Current_Power_Factor,
-    NSM, resolviendo el sistema de ecuaciones normales en forma matricial:
-    β̂ = (XᵀX)⁻¹ XᵀY ŷ = β̂₀ + β̂₁x₁ + β̂₂x₂ + … + β̂x
-"""
-
-"""
-    Casi la misma idea que regresion lineal simple pero aca hay mas variables.
-    El tema con regresion multiple es que el calculo manual que hice en b1 se alarga una banda
-    pero por suerte como no es mas que una ecuacion con incognitas y como sabemos las matrices
-    se utilizan para resolver incognitas, existe una cuenta que es la mencionada arriba
-    "β̂ = (XᵀX)⁻¹ XᵀY" que nos pertime calcular cada b0, b1, etc.
-    Se va a utilizar esto no solo porque lo pida el ejercicio sino porque es mas facil
-    yeah.
-"""
-
 import pandas as pd
 import numpy as np
-import patsy
+from ejercicio_b2 import obtener_resultados_b2
 
-df = pd.read_csv("Steel_industry_data.csv")
+def ejecutar_b5(csv_path="Steel_industry_data.csv"):
+    # 1. Cargar el dataset
+    df = pd.read_csv(csv_path)
 
-df_relevant_data = df[["Usage_kWh", "Lagging_Current_Reactive.Power_kVarh", "Leading_Current_Reactive_Power_kVarh", "Lagging_Current_Power_Factor", "NSM"]]
+    # 2. Definir las variables
+    variables_predictoras = [
+        "Lagging_Current_Reactive.Power_kVarh", 
+        "Leading_Current_Reactive_Power_kVarh", 
+        "Lagging_Current_Power_Factor", 
+        "NSM"
+    ]
+    
+    # Extraemos Y como matriz columna (n x 1)
+    Y = df["Usage_kWh"].to_numpy().reshape(-1, 1)
+    
+    # Extraemos los datos de las variables predictoras (n x k)
+    X_datos = df[variables_predictoras].to_numpy()
+    n = len(Y)
+    k = X_datos.shape[1] # k = 4
+    
+    # Armamos la matriz de diseño X agregando una columna de unos al principio para beta_0
+    X = np.c_[np.ones(n), X_datos]
 
-df_relevant_data_capped = df_relevant_data
+    # 3. Sistema de ecuaciones normales en forma matricial: β = (X^T * X)^-1 * X^T * Y
+    XT = X.T                         # Transpuesta de X
+    XTX = XT @ X                     # Producto matricial (X^T * X)
+    XTX_inv = np.linalg.inv(XTX)     # Inversa de (X^T * X)
+    XTY = XT @ Y                     # Producto matricial (X^T * Y)
+    
+    B = XTX_inv @ XTY                # Matriz de coeficientes Beta (beta_0, beta_1... beta_4)
 
-formula = (
-    '1 + Q("Lagging_Current_Reactive.Power_kVarh")'
-    ' + Q("Leading_Current_Reactive_Power_kVarh")'
-    ' + Q("Lagging_Current_Power_Factor")'
-    ' + Q("NSM")'
-)
+    print("=== Forma matricial de la regresion multiple ===")
+    print(B)
 
-matrix_x = patsy.dmatrix(formula, df_relevant_data_capped, return_type='dataframe')
+    # 4. Predicciones (Y_hat) y residuales
+    Y_hat = X @ B
+    residuos = Y - Y_hat
 
-X = matrix_x.to_numpy()
-Y = df_relevant_data_capped[["Usage_kWh"]].to_numpy()
+    # 5. Sumas de cuadrados del modelo múltiple
+    y_bar = np.mean(Y)
+    SCE_mult = np.sum(residuos ** 2)          # Suma de Cuadrados del Error
+    STC_mult = np.sum((Y - y_bar) ** 2)       # Suma Total de Cuadrados
 
-# Transpuesta de X
-XT = X.T
+    # 6. R^2 ordinario y R^2 ajustado (usando la fórmula estadística estandarizada)
+    R2_mult = 1 - (SCE_mult / STC_mult)
+    R2_adj_mult = 1 - ((n - 1) / (n - k - 1)) * (1 - R2_mult)
 
-# Producto X transpuesta por X
-XTX = XT @ X
+    # 7. Obtener los datos del modelo simple B.2 para la tabla comparativa
+    _, modelos_b2 = obtener_resultados_b2(csv_path)
+    var_b2 = "Lagging_Current_Reactive.Power_kVarh"
+    R2_b2 = modelos_b2[var_b2]["R2"]
+    
+    k_b2 = 1 # El modelo simple solo tiene 1 variable predictora
+    R2_adj_b2 = 1 - ((n - 1) / (n - k_b2 - 1)) * (1 - R2_b2)
 
-# Inversa del producto X transpuesta por X
-XTX_inv = np.linalg.inv(XTX)
+    # --- IMPRESIÓN DE RESULTADOS EN TERMINAL ---
+    
+    # Aplanamos la matriz de coeficientes B para iterarla fácilmente
+    coefs = B.flatten()
+    nombres_variables = ["Intercepto (beta_0)"] + variables_predictoras
 
-# Producto X transpuesta por Y
-XTY = XT @ Y
+    print("=== COEFICIENTES ESTIMADOS (B.5) ===")
+    for nombre, coef in zip(nombres_variables, coefs):
+        print(f"{nombre}: {coef:.6f}")
 
-B = XTX_inv @ XTY
+    print("\n=== ECUACIÓN DEL MODELO FINAL ===")
+    # Empezamos el string con beta_0
+    ecuacion = f"Usage_kWh = {coefs[0]:.4f}"
+    # Iteramos sobre el resto de las variables (desde beta_1)
+    for i, col in enumerate(variables_predictoras, start=1):
+        signo = "+" if coefs[i] >= 0 else "-"
+        ecuacion += f" {signo} {abs(coefs[i]):.6f} * ({col})"
+    print(ecuacion)
+
+    print("\n=== TABLA COMPARATIVA DE MODELOS ===")
+    df_comparacion = pd.DataFrame([
+        {
+            "Modelo": f"Simple B.2 ({var_b2})",
+            "k": k_b2,
+            "R^2 Ordinario": f"{R2_b2:.6f}",
+            "R^2 Ajustado": f"{R2_adj_b2:.6f}"
+        },
+        {
+            "Modelo": "Múltiple B.5 (4 variables)",
+            "k": k,
+            "R^2 Ordinario": f"{R2_mult:.6f}",
+            "R^2 Ajustado": f"{R2_adj_mult:.6f}"
+        }
+    ])
+    print(df_comparacion.to_string(index=False))
+
+if __name__ == "__main__":
+    ejecutar_b5()
