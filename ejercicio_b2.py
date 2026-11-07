@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from scipy import stats
+import matplotlib.pyplot as plt # Importación necesaria para graficar
 
 def calcular_regresion_simple(X, Y, x_star=None, alpha=0.05):
     """
@@ -77,7 +78,6 @@ def obtener_resultados_b2(csv_path="Steel_industry_data.csv"):
     ]
     
     # 3. Definimos en qué valor (x*) evaluaremos los intervalos ICM e IP.
-    # El ejercicio asume x* = 20.0 para la primera variable, y la media para las demás.
     x_star_values = {
         "Lagging_Current_Reactive.Power_kVarh": 20.0,
         "Leading_Current_Reactive_Power_kVarh": df["Leading_Current_Reactive_Power_kVarh"].mean(),
@@ -95,13 +95,14 @@ def obtener_resultados_b2(csv_path="Steel_industry_data.csv"):
         # Llamamos a la función de regresión matemática
         res = calcular_regresion_simple(X, Y, x_star=x_star)
         modelos[col] = res
+        
         # Formateamos los resultados para que se ajusten al cuadro B.2 (4 decimales)
         filas_tabla.append({
             "Xi": col,
             "y = beta_1*x + beta_0": f"y = {res['beta_1']:.4f}x + {res['beta_0']:.4f}",
             "sigma^2": f"{res['sigma2']:.4f}",
             "R^2": f"{res['R2']:.4f}",
-            "r": f"{res['r']:.4f}",  # Agregado para cumplir con la columna 'r' de la imagen
+            "r": f"{res['r']:.4f}", 
             "IC(beta_1)": f"[{res['ic_beta1'][0]:.4f}, {res['ic_beta1'][1]:.4f}]",
             "IC(beta_0)": f"[{res['ic_beta0'][0]:.4f}, {res['ic_beta0'][1]:.4f}]",
             "ICM(Y|x*)": f"[{res['icm'][0]:.4f}, {res['icm'][1]:.4f}]",
@@ -113,7 +114,46 @@ def obtener_resultados_b2(csv_path="Steel_industry_data.csv"):
     return df_b2, modelos
 
 if __name__ == "__main__":
-    # Ejecutamos la función e imprimimos el cuadro formateado directamente en la consola
-    df_b2 = obtener_resultados_b2()
+    csv_path = "Steel_industry_data.csv"
+    
+    # Desempaquetamos correctamente la tabla y el diccionario de modelos
+    df_b2, modelos = obtener_resultados_b2(csv_path)
+    
     print("=== CUADRO B.2 ===")
-    print(df_b2[0])
+    print(df_b2.to_string(index=False))
+    
+    # --- LÓGICA DE GRAFICACIÓN ---
+    # Seleccionamos la mejor variable (la de mayor R^2)
+    mejor_variable = "Lagging_Current_Reactive.Power_kVarh"
+    
+    # Cargamos los datos originales para graficar los puntos
+    df = pd.read_csv(csv_path)
+    X_grafico = df[mejor_variable].to_numpy()
+    Y_grafico = df["Usage_kWh"].to_numpy()
+    
+    # Extraemos los coeficientes ajustados desde nuestro diccionario de modelos
+    beta_0 = modelos[mejor_variable]["beta_0"]
+    beta_1 = modelos[mejor_variable]["beta_1"]
+    
+    # Generamos los puntos para la recta (desde el mínimo al máximo valor de X)
+    x_linea = np.linspace(X_grafico.min(), X_grafico.max(), 100)
+    y_linea = beta_0 + beta_1 * x_linea
+    
+    # Configuramos el gráfico
+    plt.figure(figsize=(10, 6))
+    
+    # Diagrama de dispersión (puntos de los datos reales)
+    plt.scatter(X_grafico, Y_grafico, alpha=0.3, color='blue', label='Datos observados')
+    
+    # Recta ajustada superpuesta
+    plt.plot(x_linea, y_linea, color='red', linewidth=2, label=f'Recta ajustada: y = {beta_1:.4f}x + {beta_0:.4f}')
+    
+    # Etiquetas y diseño
+    plt.xlabel(mejor_variable)
+    plt.ylabel("Usage_kWh")
+    plt.title(f"Diagrama de Dispersión y Regresión Lineal\nUsage_kWh vs {mejor_variable}")
+    plt.legend()
+    plt.grid(True, linestyle='--', alpha=0.7)
+    
+    # Mostramos la ventana con el gráfico
+    plt.show()
